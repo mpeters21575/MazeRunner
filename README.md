@@ -62,11 +62,11 @@ dotnet run --project src/MazeRunner.App
 | Command    | Alias | Usage               | What it does                                        |
 |------------|-------|---------------------|-----------------------------------------------------|
 | `help`     | `h`   | `help`              | Lists commands                                      |
-| `register` |       | `register <name>`   | Registers your player                               |
+| `register` |       | `register name`   | Registers your player                               |
 | `player`   |       | `player`            | Shows current player info                           |
 | `list`     | `mazes` | `list`            | Lists available mazes (static list)                 |
-| `enter`    |       | `enter <mazeName>`  | Enters a maze (once per maze per registration)      |
-| `move`     | `m`   | `move <u|r|d|l>`    | Moves Up/Right/Down/Left                            |
+| `enter`    |       | `enter mazeName`  | Enters a maze (once per maze per registration)      |
+| `move`     | `m`   | `move u, r, d, l`    | Moves Up/Right/Down/Left                            |
 | `collect`  |       | `collect`           | Collects score on a **C** tile                      |
 | `exit`     |       | `exit`              | Exits on an **E** tile                              |
 | `status`   |       | `status`            | Shows possible actions and current score            |
@@ -167,14 +167,6 @@ The UI renders a readable, friendly error panel.
 - **Auth problems**
     - Ensure `Api:Authorization` contains the **full** value, e.g. `HTI Thanks You <token>`.
     - The app sends exactly what you configure—no automatic prefixing.
-
----
-
-## Developing / Extending
-
-- Add a new command: implement `IConsoleCommand`, register in DI.
-- Customize map: extend `MapTracker` to mark special tiles (e.g., infer from `PossibleActions`).
-- Centralize output via `Render` to retheme output easily.
 
 ---
 
