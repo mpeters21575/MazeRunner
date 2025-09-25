@@ -1,32 +1,48 @@
+using MazeRunner.Presentation;
 using MazeRunner.Presentation.Commands;
-using Spectre.Console;
 
 namespace MazeRunner.Presentation;
 
-public static class ConsoleUi
+public sealed class ConsoleUi(CommandRouter router)
 {
-    public static async Task RunAsync(CommandRouter router, CancellationToken ct)
+    public async Task RunAsync()
     {
-        AnsiConsole.MarkupLine("[bold cyan]MazeRunner[/] type [bold]help[/] for commands.");
+        Render.Info("MazeRunner");
         var running = true;
-        while (running && !ct.IsCancellationRequested)
+        while (running)
         {
-            var input = AnsiConsole.Prompt(new TextPrompt<string>("[grey]>[/] ")).Trim();
-            if (string.IsNullOrEmpty(input)) continue;
-            var parts = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            try
-            {
-                var handled = await router.RouteAsync(parts, ct);
-                if (!handled) running = false;
-            }
-            catch (HightechICT.Amazeing.Client.Rest.ApiException aex)
-            {
-                Render.ApiError(aex);
-            }
-            catch (Exception ex)
-            {
-                Render.Error(ex.Message);
-            }
+            var line = Spectre.Console.AnsiConsole.Prompt(new Spectre.Console.TextPrompt<string>(">"));
+            var parts = Split(line);
+            if (parts.Length == 0) continue;
+            running = await router.DispatchAsync(parts, CancellationToken.None);
         }
+    }
+
+    private static string[] Split(string input)
+    {
+        var r = new List<string>();
+        var sb = new System.Text.StringBuilder();
+        var q = false;
+        foreach (var ch in input)
+        {
+            if (ch == '"')
+            {
+                q = !q;
+                continue;
+            }
+
+            if (!q && char.IsWhiteSpace(ch))
+            {
+                if (sb.Length > 0)
+                {
+                    r.Add(sb.ToString());
+                    sb.Clear();
+                }
+            }
+            else sb.Append(ch);
+        }
+
+        if (sb.Length > 0) r.Add(sb.ToString());
+        return r.ToArray();
     }
 }

@@ -13,40 +13,40 @@ public interface IMapTracker
 
 public sealed class MapTracker : IMapTracker
 {
-    readonly Dictionary<(int x,int y), Node> _nodes = new();
-    (int x,int y) _pos;
+    private readonly Dictionary<(int x,int y), Node> _nodes = new();
+    private (int x,int y) _possition;
 
     public void Reset()
     {
         _nodes.Clear();
-        _pos = (0,0);
+        _possition = (0,0);
     }
 
     public void Enter()
     {
         Reset();
-        var n = Get(_pos);
+        var n = Get(_possition);
         n.IsStart = true;
-        Set(_pos, n);
+        Set(_possition, n);
     }
 
     public void Move(string directionKey)
     {
         var dir = Parse(directionKey);
         var delta = Delta(dir);
-        var from = _pos;
-        var to = (from.x + delta.dx, from.y + delta.dy);
+        var from = _possition;
+        var to = (from.x + delta.xDirection, from.y + delta.yDirection);
 
-        var a = Get(from);
-        var b = Get(to);
+        var fromNode = Get(from);
+        var toNode = Get(to);
 
-        a.Links.Add(dir);
-        b.Links.Add(Opposite(dir));
+        fromNode.Links.Add(dir);
+        toNode.Links.Add(Opposite(dir));
 
-        Set(from, a);
-        Set(to, b);
+        Set(from, fromNode);
+        Set(to, toNode);
 
-        _pos = to;
+        _possition = to;
     }
 
     public string RenderAscii()
@@ -66,16 +66,16 @@ public sealed class MapTracker : IMapTracker
 
             for (var x = minX; x <= maxX; x++)
             {
-                var here = (x,y);
-                var n = _nodes.TryGetValue(here, out var node) ? node : null;
+                var here = (x: x,y);
+                var value = _nodes.TryGetValue(here, out var node) ? node : null;
 
-                rowTiles.Append(Symbol(n, here == _pos));
+                rowTiles.Append(Symbol(value, here == _possition));
                 if (x < maxX)
-                    rowTiles.Append(n is { } && n.Links.Contains(Direction.Right) ? "-" : " ");
+                    rowTiles.Append(value is { } && value.Links.Contains(Direction.Right) ? "-" : " ");
 
                 if (y > minY)
                 {
-                    var hasDown = n is { } && n.Links.Contains(Direction.Down);
+                    var hasDown = value is { } && value.Links.Contains(Direction.Down);
                     rowLinks.Append(hasDown ? "|" : " ");
                     if (x < maxX) rowLinks.Append(" ");
                 }
@@ -88,51 +88,51 @@ public sealed class MapTracker : IMapTracker
         return sb.ToString();
     }
 
-    static Direction Parse(string key)
+    private static Direction Parse(string key)
     {
-        var k = key.Trim().ToLowerInvariant();
-        if (new[] { "u", "up", "↑" }.Contains(k)) return Direction.Up;
-        if (new[] { "r", "right", "→" }.Contains(k)) return Direction.Right;
-        if (new[] { "d", "down", "↓" }.Contains(k)) return Direction.Down;
-        if (new[] { "l", "left", "←" }.Contains(k)) return Direction.Left;
+        var value = key.Trim().ToLowerInvariant();
+        if (new[] { "u", "up", "↑" }.Contains(value)) return Direction.Up;
+        if (new[] { "r", "right", "→" }.Contains(value)) return Direction.Right;
+        if (new[] { "d", "down", "↓" }.Contains(value)) return Direction.Down;
+        if (new[] { "l", "left", "←" }.Contains(value)) return Direction.Left;
         throw new ArgumentException("invalid direction");
     }
 
-    static (int dx,int dy) Delta(Direction d)
+    private static (int xDirection, int yDirection) Delta(Direction direction)
     {
-        if (d == Direction.Up) return (0, 1);
-        if (d == Direction.Right) return (1, 0);
-        if (d == Direction.Down) return (0,-1);
+        if (direction == Direction.Up) return (0, 1);
+        if (direction == Direction.Right) return (1, 0);
+        if (direction == Direction.Down) return (0,-1);
         return (-1,0);
     }
 
-    static Direction Opposite(Direction d)
+    private static Direction Opposite(Direction direction)
     {
-        if (d == Direction.Up) return Direction.Down;
-        if (d == Direction.Right) return Direction.Left;
-        if (d == Direction.Down) return Direction.Up;
+        if (direction == Direction.Up) return Direction.Down;
+        if (direction == Direction.Right) return Direction.Left;
+        if (direction == Direction.Down) return Direction.Up;
         return Direction.Right;
     }
 
-    static string Symbol(Node? n, bool current)
+    private static string Symbol(Node? node, bool current)
     {
         if (current) return "@";
-        if (n is null) return " ";
-        if (n.IsStart) return "S";
+        if (node is null) return " ";
+        if (node.IsStart) return "S";
         return "o";
     }
 
-    Node Get((int x,int y) p)
+    private Node Get((int x,int y) coordinates)
     {
-        if (_nodes.TryGetValue(p, out var n)) return n;
+        if (_nodes.TryGetValue(coordinates, out var n)) return n;
         n = new Node();
-        _nodes[p] = n;
+        _nodes[coordinates] = n;
         return n;
     }
 
-    void Set((int x,int y) p, Node n) => _nodes[p] = n;
+    private void Set((int x,int y) p, Node n) => _nodes[p] = n;
 
-    sealed class Node
+    private sealed class Node
     {
         public bool IsStart { get; set; }
         public HashSet<Direction> Links { get; } = new();

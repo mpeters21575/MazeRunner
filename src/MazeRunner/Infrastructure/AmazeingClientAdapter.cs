@@ -52,7 +52,7 @@ public sealed class AmazeingClientAdapter : IMazeService
     public Task<PossibleActionsAndCurrentScore> PossibleActionsAsync(CancellationToken ct) =>
         Invoke("status", () => _client.PossibleActions(ct));
 
-    static bool LooksLikeJson(string? s)
+    private static bool LooksLikeJson(string? s)
     {
         if (string.IsNullOrWhiteSpace(s)) return false;
         var t = s.TrimStart();
@@ -60,7 +60,7 @@ public sealed class AmazeingClientAdapter : IMazeService
         try { using var _ = JsonDocument.Parse(t); return true; } catch { return false; }
     }
 
-    static string Friendly(string action, int status) =>
+    private static string Friendly(string action, int status) =>
         new Dictionary<string, Dictionary<int,string>>(StringComparer.OrdinalIgnoreCase)
         {
             ["enter"]   = new() { [400]="Maze name is required.", [404]="Maze not found.", [409]="Already in or already played this maze.", [412]="Register first." },

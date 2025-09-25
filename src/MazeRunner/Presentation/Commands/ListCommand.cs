@@ -4,7 +4,7 @@ namespace MazeRunner.Presentation.Commands;
 
 public sealed class ListCommand(IMazeService api) : IConsoleCommand
 {
-    public IReadOnlyCollection<string> Names => new[] { "list", "mazes" };
+    public IReadOnlyCollection<string> Names => ["list", "mazes"];
     public string Usage => "list";
     public async Task<bool> TryExecuteAsync(string[] parts, CancellationToken ct)
     {

@@ -36,9 +36,9 @@ public static class Render
 
     public static void ApiError(ApiException ex)
     {
-        var msg = Markup.Escape(ex.Message ?? "");
+        var message = Markup.Escape(ex.Message ?? "");
         var body = string.IsNullOrWhiteSpace(ex.Response) ? "(empty body)" : Markup.Escape(ex.Response);
-        var panel = new Panel($"[red]HTTP {(int)ex.StatusCode}[/]\n{msg}\n\n{body}")
+        var panel = new Panel($"[red]HTTP {(int)ex.StatusCode}[/]\n{message}\n\n{body}")
             .Header("API Error").Border(BoxBorder.Rounded).Expand();
         
         AnsiConsole.Write(panel);

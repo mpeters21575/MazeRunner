@@ -15,6 +15,7 @@
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
         <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.9" />
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.9" />
+        <PackageReference Include="Scrutor" Version="6.1.0" />
         <PackageReference Include="Spectre.Console" Version="0.51.1" />
         <PackageReference Include="HightechICT.Amazeing.Client.Rest" Version="3.1.0" />
     </ItemGroup>

@@ -7,8 +7,9 @@ namespace MazeRunner.Presentation.Commands;
 
 public sealed class ExitCommand(IMazeService api, IApiErrorHandler errors, IMapTracker map) : IConsoleCommand
 {
-    public IReadOnlyCollection<string> Names => new[] { "exit" };
+    public IReadOnlyCollection<string> Names => ["exit"];
     public string Usage => "exit";
+
     public async Task<bool> TryExecuteAsync(string[] parts, CancellationToken ct)
     {
         try
@@ -17,8 +18,14 @@ public sealed class ExitCommand(IMazeService api, IApiErrorHandler errors, IMapT
             map.Reset();
             Render.Info("exited");
         }
-        catch (ApiException ex) when (errors.TryHandle("exit", ex)) { }
-        catch (ApiException ex) { Render.ApiError(ex); }
+        catch (ApiException ex) when (errors.TryHandle("exit", ex))
+        {
+        }
+        catch (ApiException ex)
+        {
+            Render.ApiError(ex);
+        }
+
         return true;
     }
 }

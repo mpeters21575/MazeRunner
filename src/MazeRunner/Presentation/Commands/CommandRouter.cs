@@ -1,12 +1,27 @@
 namespace MazeRunner.Presentation.Commands;
 
-public sealed class CommandRouter(IEnumerable<IConsoleCommand> commands)
+public sealed class CommandRouter
 {
-    readonly IReadOnlyList<IConsoleCommand> _commands = commands.ToList();
+    readonly IReadOnlyList<IConsoleCommand> _commands;
 
-    public Task<bool> RouteAsync(string[] parts, CancellationToken ct) =>
-        _commands.FirstOrDefault(c => c.Names.Contains(parts[0], StringComparer.OrdinalIgnoreCase))?.TryExecuteAsync(parts, ct)
-        ?? Task.FromResult(false);
-    public IEnumerable<(string Name, string Usage)> Help() =>
-        _commands.Select(c => (string.Join("|", c.Names), c.Usage));
+    public CommandRouter(IEnumerable<IConsoleCommand> commands)
+    {
+        _commands = commands.OrderBy(c => c.Names.First()).ToList();
+    }
+
+    public async Task<bool> DispatchAsync(string[] parts, CancellationToken ct)
+    {
+        var name = parts[0].ToLowerInvariant();
+        var cmd = _commands.FirstOrDefault(c => c.Names.Contains(name, StringComparer.OrdinalIgnoreCase));
+        if (cmd is null)
+        {
+            Render.Warn("unknown command");
+            return true;
+        }
+
+        return await cmd.TryExecuteAsync(parts, ct);
+    }
+
+    public IEnumerable<(string name, string usage)> Help()
+        => from command in _commands from name in command.Names select (name, command.Usage);
 }

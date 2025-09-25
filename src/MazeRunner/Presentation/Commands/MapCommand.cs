@@ -4,7 +4,7 @@ namespace MazeRunner.Presentation.Commands;
 
 public sealed class MapCommand(IMapTracker map) : IConsoleCommand
 {
-    public IReadOnlyCollection<string> Names => new[] { "map" };
+    public IReadOnlyCollection<string> Names => ["map"];
     public string Usage => "map";
 
     public Task<bool> TryExecuteAsync(string[] parts, CancellationToken ct)

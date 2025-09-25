@@ -9,9 +9,15 @@ public sealed class EnterCommand(IMazeService api, IApiErrorHandler errors, IMap
 {
     public IReadOnlyCollection<string> Names => new[] { "enter" };
     public string Usage => "enter <mazeName>";
+
     public async Task<bool> TryExecuteAsync(string[] parts, CancellationToken ct)
     {
-        if (parts.Length < 2) { Render.Warn("enter <mazeName>"); return true; }
+        if (parts.Length < 2)
+        {
+            Render.Warn("enter <mazeName>");
+            return true;
+        }
+
         var mazeName = string.Join(" ", parts.Skip(1));
         try
         {
@@ -19,8 +25,14 @@ public sealed class EnterCommand(IMazeService api, IApiErrorHandler errors, IMap
             map.Enter();
             Render.Map(map.RenderAscii());
         }
-        catch (ApiException ex) when (errors.TryHandle("enter", ex)) { }
-        catch (ApiException ex) { Render.ApiError(ex); }
+        catch (ApiException ex) when (errors.TryHandle("enter", ex))
+        {
+        }
+        catch (ApiException ex)
+        {
+            Render.ApiError(ex);
+        }
+
         return true;
     }
 }

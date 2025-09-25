@@ -4,7 +4,7 @@ namespace MazeRunner.Presentation.Commands;
 
 public sealed class PlayerCommand(IMazeService api) : IConsoleCommand
 {
-    public IReadOnlyCollection<string> Names => new[] { "player" };
+    public IReadOnlyCollection<string> Names => ["player"];
     public string Usage => "player";
     public async Task<bool> TryExecuteAsync(string[] parts, CancellationToken ct)
     {

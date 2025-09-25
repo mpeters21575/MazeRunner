@@ -10,7 +10,7 @@ public interface IApiErrorHandler
 
 public sealed class ApiErrorHandler : IApiErrorHandler
 {
-    readonly IReadOnlyDictionary<string, IReadOnlyDictionary<int, string>> _map =
+    private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<int, string>> _map =
         new Dictionary<string, IReadOnlyDictionary<int, string>>(StringComparer.OrdinalIgnoreCase)
         {
             ["enter"] = new Dictionary<int, string>
@@ -50,7 +50,9 @@ public sealed class ApiErrorHandler : IApiErrorHandler
         if (!_map.TryGetValue(action, out var byStatus)) return false;
         if (!byStatus.TryGetValue((int)ex.StatusCode, out var friendly)) return false;
 
-        var body = string.IsNullOrWhiteSpace(ex.Response) ? "(empty body)" : Markup.Escape(ex.Response);
+        var body = string.IsNullOrWhiteSpace(ex.Response) 
+            ? "(empty body)" 
+            : Markup.Escape(ex.Response);
         var panel = new Panel($"[red]HTTP {(int)ex.StatusCode}[/] — {Markup.Escape(friendly)}\n\n{body}")
             .Header("API Error").Border(BoxBorder.Rounded).Expand();
         AnsiConsole.Write(panel);
