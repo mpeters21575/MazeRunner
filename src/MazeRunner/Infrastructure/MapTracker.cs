@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using HightechICT.Amazeing.Client.Rest;
 
 namespace MazeRunner.Infrastructure;
@@ -9,29 +10,99 @@ public interface IMapTracker
     void Enter();
     void Move(string directionKey);
     string RenderAscii();
+    void LoadState();
+    void SaveState();
 }
 
 public sealed class MapTracker : IMapTracker
 {
     private readonly Dictionary<(int x,int y), Node> _nodes = new();
     private (int x,int y) _possition;
+    private static readonly string StateFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mazerunner-state.json");
+
+    public void LoadState()
+    {
+        try
+        {
+            if (!File.Exists(StateFile)) return;
+            
+            var json = File.ReadAllText(StateFile);
+            var state = JsonSerializer.Deserialize<MapState>(json);
+            if (state == null) return;
+
+            _nodes.Clear();
+            _possition = (state.PositionX, state.PositionY);
+            
+            foreach (var nodeData in state.Nodes)
+            {
+                var node = new Node
+                {
+                    IsStart = nodeData.IsStart
+                };
+                foreach (var direction in nodeData.Links)
+                {
+                    node.Links.Add((Direction)direction);
+                }
+                _nodes[(nodeData.X, nodeData.Y)] = node;
+            }
+        }
+        catch
+        {
+            // If loading fails, start fresh
+            Reset();
+        }
+    }
+
+    public void SaveState()
+    {
+        try
+        {
+            var state = new MapState
+            {
+                PositionX = _possition.x,
+                PositionY = _possition.y,
+                Nodes = _nodes.Select(kvp => new NodeData
+                {
+                    X = kvp.Key.x,
+                    Y = kvp.Key.y,
+                    IsStart = kvp.Value.IsStart,
+                    Links = kvp.Value.Links.Select(d => (int)d).ToList()
+                }).ToList()
+            };
+
+            var json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(StateFile, json);
+        }
+        catch
+        {
+            // Ignore save errors
+        }
+    }
 
     public void Reset()
     {
         _nodes.Clear();
         _possition = (0,0);
+        SaveState();
     }
 
     public void Enter()
     {
-        Reset();
-        var n = Get(_possition);
-        n.IsStart = true;
-        Set(_possition, n);
+        LoadState();
+        // Only reset if we don't have any saved state
+        if (_nodes.Count == 0)
+        {
+            var n = Get(_possition);
+            n.IsStart = true;
+            Set(_possition, n);
+            SaveState();
+        }
     }
 
     public void Move(string directionKey)
     {
+        LoadState();
+        
         var dir = Parse(directionKey);
         var delta = Delta(dir);
         var from = _possition;
@@ -47,10 +118,13 @@ public sealed class MapTracker : IMapTracker
         Set(to, toNode);
 
         _possition = to;
+        SaveState();
     }
 
     public string RenderAscii()
     {
+        LoadState();
+        
         if (_nodes.Count == 0) return "(map is empty)\n";
 
         var minX = _nodes.Keys.Min(k => k.x);
@@ -137,4 +211,20 @@ public sealed class MapTracker : IMapTracker
         public bool IsStart { get; set; }
         public HashSet<Direction> Links { get; } = new();
     }
+}
+
+// Data classes for JSON serialization
+public class MapState
+{
+    public int PositionX { get; set; }
+    public int PositionY { get; set; }
+    public List<NodeData> Nodes { get; set; } = new();
+}
+
+public class NodeData
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+    public bool IsStart { get; set; }
+    public List<int> Links { get; set; } = new();
 }
