@@ -4,15 +4,24 @@ using HightechICT.Amazeing.Client.Rest;
 
 namespace MazeRunner.Infrastructure;
 
+public class DirectionOpportunityInfo
+{
+    public string Direction { get; set; } = string.Empty;
+    public bool AllowsCollection { get; set; }
+    public bool AllowsExit { get; set; }
+}
+
 public interface IMapTracker
 {
     void Reset();
     void Enter();
     void Enter(bool canCollectScore, bool canExit);
     void Enter(bool canCollectScore, bool canExit, string[] possibleMoves);
+    void Enter(bool canCollectScore, bool canExit, DirectionOpportunityInfo[] directionOpportunities);
     void Move(string directionKey);
     void Move(string directionKey, bool canCollectScore, bool canExit);
     void Move(string directionKey, bool canCollectScore, bool canExit, string[] possibleMoves);
+    void Move(string directionKey, bool canCollectScore, bool canExit, DirectionOpportunityInfo[] directionOpportunities);
     string RenderAscii();
     void LoadState();
     void SaveState();
@@ -53,6 +62,14 @@ public sealed class MapTracker : IMapTracker
                 {
                     node.PossibleMoves.Add((Direction)direction);
                 }
+                foreach (var dirOpp in nodeData.DirectionOpportunities)
+                {
+                    node.DirectionOpportunities[(Direction)dirOpp.Key] = new DirectionOpportunity
+                    {
+                        AllowsCollection = dirOpp.Value.AllowsCollection,
+                        AllowsExit = dirOpp.Value.AllowsExit
+                    };
+                }
                 _nodes[(nodeData.X, nodeData.Y)] = node;
             }
         }
@@ -79,7 +96,14 @@ public sealed class MapTracker : IMapTracker
                     CanCollectScore = kvp.Value.CanCollectScore,
                     CanExit = kvp.Value.CanExit,
                     Links = kvp.Value.Links.Select(d => (int)d).ToList(),
-                    PossibleMoves = kvp.Value.PossibleMoves.Select(d => (int)d).ToList()
+                    PossibleMoves = kvp.Value.PossibleMoves.Select(d => (int)d).ToList(),
+                    DirectionOpportunities = kvp.Value.DirectionOpportunities.ToDictionary(
+                        kv => (int)kv.Key,
+                        kv => new DirectionOpportunityData
+                        {
+                            AllowsCollection = kv.Value.AllowsCollection,
+                            AllowsExit = kv.Value.AllowsExit
+                        })
                 }).ToList()
             };
 
@@ -222,6 +246,158 @@ public sealed class MapTracker : IMapTracker
         SaveState();
     }
 
+    public void Move(string directionKey, bool canCollectScore, bool canExit, DirectionOpportunityInfo[] directionOpportunities)
+    {
+        LoadState();
+        
+        var dir = Parse(directionKey);
+        var from = _possition;
+        var fromNode = Get(from);
+        
+        // Convert DirectionOpportunityInfo[] to string[] for move validation
+        var possibleMoves = directionOpportunities.Select(d => d.Direction).ToArray();
+        
+        // Validate that the move is actually possible from current position
+        if (!fromNode.PossibleMoves.Contains(dir))
+        {
+            // Invalid move - server didn't move us, so don't update position
+            // Just update the current node's possible moves with the server response
+            fromNode.PossibleMoves.Clear();
+            foreach (var move in possibleMoves)
+            {
+                if (TryParse(move, out var direction))
+                {
+                    fromNode.PossibleMoves.Add(direction);
+                }
+            }
+            
+            // Update current position properties but don't change position
+            fromNode.CanCollectScore = canCollectScore;
+            fromNode.CanExit = canExit;
+            
+            // Store directional opportunities for current position since we're staying here
+            fromNode.DirectionOpportunities.Clear();
+            foreach (var opportunity in directionOpportunities)
+            {
+                if (TryParse(opportunity.Direction, out var direction))
+                {
+                    fromNode.DirectionOpportunities[direction] = new DirectionOpportunity
+                    {
+                        AllowsCollection = opportunity.AllowsCollection,
+                        AllowsExit = opportunity.AllowsExit
+                    };
+                }
+            }
+            
+            Set(from, fromNode);
+            SaveState();
+            return;
+        }
+        
+        // Valid move - proceed with position update
+        var delta = Delta(dir);
+        var to = (from.x + delta.xDirection, from.y + delta.yDirection);
+        var toNode = Get(to);
+
+        // TRACKING LESSON: Only add outgoing links, don't assume bidirectional connections!
+        // The maze may have one-way passages or blocked returns
+        fromNode.Links.Add(dir);
+        
+        // COLLECTION STRATEGY: Track these flags carefully - they determine scoring opportunities!
+        // CanCollectScore = secure points here with 'collect' command BEFORE exiting
+        // CanExit = potential maze completion point, but only exit with points in bag!
+        toNode.CanCollectScore = canCollectScore;
+        toNode.CanExit = canExit;
+        
+        // Parse and store possible moves for the destination
+        // Use these to determine which links exist FROM the destination
+        toNode.PossibleMoves.Clear();
+        toNode.Links.Clear(); // Clear existing links and rebuild from server response
+        
+        foreach (var move in possibleMoves)
+        {
+            if (TryParse(move, out var direction))
+            {
+                toNode.PossibleMoves.Add(direction);
+                
+                // Check if this direction leads to a known visited position
+                var deltaMove = Delta(direction);
+                var adjacentPos = (to.Item1 + deltaMove.xDirection, to.Item2 + deltaMove.yDirection);
+                
+                if (_nodes.ContainsKey(adjacentPos))
+                {
+                    // We know this adjacent position exists and has been visited
+                    // So we can create a link to it
+                    toNode.Links.Add(direction);
+                }
+            }
+        }
+
+        // Store directional opportunities for the NEW position (where we moved TO)
+        toNode.DirectionOpportunities.Clear();
+        foreach (var opportunity in directionOpportunities)
+        {
+            if (TryParse(opportunity.Direction, out var direction))
+            {
+                toNode.DirectionOpportunities[direction] = new DirectionOpportunity
+                {
+                    AllowsCollection = opportunity.AllowsCollection,
+                    AllowsExit = opportunity.AllowsExit
+                };
+            }
+        }
+
+        Set(from, fromNode);
+        Set(to, toNode);
+
+        _possition = to;
+        SaveState();
+    }
+
+    public void Enter(bool canCollectScore, bool canExit, DirectionOpportunityInfo[] directionOpportunities)
+    {
+        LoadState();
+        
+        // Convert to string array 
+        var possibleMoves = directionOpportunities.Select(d => d.Direction).ToArray();
+        
+        // Only reset if we don't have any saved state
+        if (_nodes.Count == 0)
+        {
+            var n = Get(_possition);
+            n.IsStart = true;
+            n.CanCollectScore = canCollectScore;
+            n.CanExit = canExit;
+            
+            // Parse and store possible moves
+            n.PossibleMoves.Clear();
+            foreach (var move in possibleMoves)
+            {
+                if (TryParse(move, out var direction))
+                {
+                    n.PossibleMoves.Add(direction);
+                }
+            }
+            
+            // Store the rich directional opportunity information
+            n.DirectionOpportunities.Clear();
+            foreach (var opportunity in directionOpportunities)
+            {
+                if (TryParse(opportunity.Direction, out var direction))
+                {
+                    n.DirectionOpportunities[direction] = new DirectionOpportunity
+                    {
+                        AllowsCollection = opportunity.AllowsCollection,
+                        AllowsExit = opportunity.AllowsExit
+                    };
+                }
+            }
+            
+            Set(_possition, n);
+            SaveState();
+        }
+    }
+
     public string RenderAscii()
     {
         LoadState();
@@ -295,11 +471,22 @@ public sealed class MapTracker : IMapTracker
                     connectionGridY < 0 || connectionGridY >= grid.GetLength(0))
                     continue;
 
-                var symbol = hasExplored ? (dir == Direction.Up || dir == Direction.Down ? '|' : '-') : '?';
+                char symbol;
+                if (hasExplored)
+                {
+                    symbol = (dir == Direction.Up || dir == Direction.Down ? '|' : '-');
+                }
+                else
+                {
+                    // Unexplored connection - check what's at the destination from current status response
+                    // We need to look up what the server told us about this direction's opportunities
+                    symbol = GetUnexploredConnectionSymbol(node, dir);
+                }
                 
-                // Apply precedence: - and | always win over ? 
+                // Apply precedence: - and | always win over other symbols 
                 var current = grid[connectionGridY, connectionGridX];
-                if (current == ' ' || (current == '?' && (symbol == '-' || symbol == '|')))
+                if (current == ' ' || (current != '-' && current != '|' && (symbol == '-' || symbol == '|')) ||
+                    (current == '?' && symbol != '?'))
                 {
                     grid[connectionGridY, connectionGridX] = symbol;
                 }
@@ -318,6 +505,19 @@ public sealed class MapTracker : IMapTracker
         }
 
         return sb.ToString();
+    }
+
+    private static char GetUnexploredConnectionSymbol(Node node, Direction dir)
+    {
+        if (node.DirectionOpportunities.TryGetValue(dir, out var opportunity))
+        {
+            // Show most important opportunity with single letters
+            if (opportunity.AllowsCollection && opportunity.AllowsExit) return 'x'; // Both
+            if (opportunity.AllowsCollection) return 'c'; // Collection
+            if (opportunity.AllowsExit) return 'e'; // Exit
+        }
+        
+        return '?'; // Unknown/no special opportunities
     }
 
     private static Direction Parse(string key)
@@ -393,6 +593,14 @@ public sealed class MapTracker : IMapTracker
         public bool CanExit { get; set; }
         public HashSet<Direction> Links { get; } = new();
         public HashSet<Direction> PossibleMoves { get; } = new();
+        // Store what opportunities exist in each direction
+        public Dictionary<Direction, DirectionOpportunity> DirectionOpportunities { get; } = new();
+    }
+    
+    private sealed class DirectionOpportunity
+    {
+        public bool AllowsCollection { get; set; }
+        public bool AllowsExit { get; set; }
     }
 }
 
@@ -413,4 +621,11 @@ public class NodeData
     public bool CanExit { get; set; }
     public List<int> Links { get; set; } = new();
     public List<int> PossibleMoves { get; set; } = new();
+    public Dictionary<int, DirectionOpportunityData> DirectionOpportunities { get; set; } = new();
+}
+
+public class DirectionOpportunityData
+{
+    public bool AllowsCollection { get; set; }
+    public bool AllowsExit { get; set; }
 }
