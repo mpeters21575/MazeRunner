@@ -16,6 +16,7 @@ dotnet run --no-build -- "<command> [parameters]"
 
 ### Essential Commands
 - `register "<name>"` - Register with the maze system (required first step)
+- `list` - **CRITICAL: Shows all mazes with maximum possible points and tile counts**
 - `enter "<mazeName>"` - Enter a specific maze
 - `move <direction>` - Move in direction: u/up, d/down, l/left, r/right
 - `collect` - Collect points in hand and secure them in bag at Collection points
@@ -27,13 +28,37 @@ dotnet run --no-build -- "<command> [parameters]"
 ### Command Examples
 ```
 dotnet run --no-build -- "register" "MyName"
-dotnet run --no-build -- "enter Test"
+dotnet run --no-build -- "list"                    # ALWAYS do this first!
+dotnet run --no-build -- "enter Glasses"           # Target: 272 points
 dotnet run --no-build -- "move u"
 dotnet run --no-build -- "collect"
 dotnet run --no-build -- "map"
 ```
 
-## Visualization System
+## The List Command - KEY TO SUCCESS
+
+### List Output Format
+```
+┌─────────────────┬───────────────────┬─────────────┐
+│ Name            │ Potential rewards │ Total tiles │
+├─────────────────┼───────────────────┼─────────────┤
+│ Glasses         │ 272               │ 30          │
+│ Test            │ 1                 │ 5           │
+│ PacMan          │ 1209              │ 298         │
+└─────────────────┴───────────────────┴─────────────┘
+```
+
+### Critical Information Provided
+- **Name**: Maze identifier for enter command
+- **Potential rewards**: **MAXIMUM POSSIBLE POINTS** achievable in the maze
+- **Total tiles**: Complexity/size indicator
+
+### Strategic Usage
+- **Always run `list` before choosing a maze**
+- **Know your target**: The "Potential rewards" number is your completion goal
+- **Track progress**: Compare `currentScoreInBag` against potential rewards
+- **Completion criteria**: You're done when `currentScoreInBag` = potential rewards
+- **Efficiency planning**: Calculate reward-to-tile ratio for maze selection
 
 ### Position Markers (Priority Order)
 1. `@` = **Current position** (highest priority - always shows where you are)
@@ -133,10 +158,11 @@ S-o-E |
 - **canExitMazeHere**: Whether you can exit the maze now
 
 ## Success Criteria
-1. **Complete Exploration**: All `?` symbols resolved (no unexplored directions remain)
-2. **Maximum Points**: All tiles visited multiple times for maximum rewards
-3. **Secure Points**: All points in hand secured to bag at Collection points
-4. **Safe Exit**: Exit only after achieving objectives, with all points secured
+1. **Achieve Target Score**: `currentScoreInBag` equals the "Potential rewards" from list command
+2. **Secure All Points**: All points in hand transferred to bag at Collection points
+3. **Safe Exit**: Exit only after achieving target score with zero points at risk
+
+**Note**: Complete exploration (resolving all `?` symbols) is only necessary if you haven't reached the target score yet. Once you achieve the maximum possible points, additional exploration is optional.
 
 ## Error Handling
 - **412 Errors**: Usually mean you need to register or enter a maze first
