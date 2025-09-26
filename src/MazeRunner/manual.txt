@@ -5,7 +5,15 @@ MazeRunner is a CLI-based maze solving application that provides persistent stat
 
 ## Goals
 - **PRIMARY GOAL**: Collect ALL possible points from any maze
-- **SECONDARY GOAL**: Use as few steps as possible
+- **SECONDARY GOAL**: Use as few API calls as possible
+
+## Competition Rules
+- **Scoring Priority**: Points collected are the primary ranking criteria
+- **API Call Efficiency**: Number of API calls is the secondary ranking criteria (fewer is better)
+- **Point Loss on Exit**: Points in hand are LOST when exiting a maze - only points in bag are kept
+- **No Maze Abandonment**: Cannot give up or abandon a maze once entered - must complete or forget all progress
+- **Persistent API Count**: API call counting continues even after using `forget` command
+- **One Maze Rule**: Must exit current maze before entering a different one
 
 ## Command Line Interface
 
@@ -13,6 +21,8 @@ MazeRunner is a CLI-based maze solving application that provides persistent stat
 ```
 dotnet run --no-build -- "<command> [parameters]"
 ```
+
+**IMPORTANT**: When using commands with parameters from the command line, you must quote the entire command and its parameters together as a single string.
 
 ### Essential Commands
 - `register "<name>"` - Register with the maze system (required first step)
@@ -27,7 +37,7 @@ dotnet run --no-build -- "<command> [parameters]"
 
 ### Command Examples
 ```
-dotnet run --no-build -- "register" "MyName"
+dotnet run --no-build -- "register MyName"
 dotnet run --no-build -- "list"                    # ALWAYS do this first!
 dotnet run --no-build -- "enter Glasses"           # Target: 272 points
 dotnet run --no-build -- "move u"
@@ -53,13 +63,6 @@ dotnet run --no-build -- "map"
 - **Potential rewards**: **MAXIMUM POSSIBLE POINTS** achievable in the maze
 - **Total tiles**: Complexity/size indicator
 
-### Strategic Usage
-- **Always run `list` before choosing a maze**
-- **Know your target**: The "Potential rewards" number is your completion goal
-- **Track progress**: Compare `currentScoreInBag` against potential rewards
-- **Completion criteria**: You're done when `currentScoreInBag` = potential rewards
-- **Efficiency planning**: Calculate reward-to-tile ratio for maze selection
-
 ### Position Markers (Priority Order)
 1. `@` = **Current position** (highest priority - always shows where you are)
 2. `C` = **Collection point** (can secure points in bag here)
@@ -71,24 +74,35 @@ dotnet run --no-build -- "map"
 ### Connection Indicators
 - `-` = **Confirmed horizontal connection** (you can move left/right here)
 - `|` = **Confirmed vertical connection** (you can move up/down here)
-- `?` = **UNEXPLORED direction available** (possible move you haven't tried)
+- `c` = **UNEXPLORED direction with collection opportunity** (allowsScoreCollection: true)
+- `e` = **UNEXPLORED direction with exit opportunity** (allowsExit: true)
+- `x` = **UNEXPLORED direction with both collection AND exit opportunities**
+- `?` = **UNEXPLORED direction available** (possible move you haven't tried, no special opportunities)
 - ` ` = **No connection** (wall or impassable)
 
 ### Example Visualization
 ```
-C-o-o-@
-|   ? |
-S-o-E |
-    | |
-    o-X
+S-o-C-@e
+|     |
+o    co-E?
+|   c |
+o-o-o-X
 ```
 **Interpretation:**
-- Current position `@` has unexplored down direction `?`
-- Collection point `C` available (top-left)
-- Exit point `E` available (bottom-middle)
-- Combined point `X` available (bottom-right)
-- All `-` and `|` show confirmed passable connections
-- Start point `S` shown because it has no special capabilities
+- Current position `@` has unexplored right direction `e` (exit opportunity available)
+- Collection point `C` available (top row, visited)
+- Exit point `E` available (middle-right, visited)  
+- Combined point `X` available (bottom-right, visited)
+- Start point `S` shown (top-left, visited)
+- Regular explored positions `o` connected by confirmed links `-` and `|`
+- Two `c` symbols show unexplored directions leading to the same unvisited collection point
+- One `e` symbol shows unexplored direction with exit opportunity
+- One `?` symbol shows unexplored direction with no special opportunities
+
+### Important Connection Symbol Behavior
+- **Opportunity symbols** (`c`, `e`, `x`) only appear for **UNEXPLORED** directions
+- Once you visit both ends of a connection, opportunity symbols transform to structural symbols (`-`, `|`)
+- **Priority order**: Confirmed connections (`-`, `|`) > Opportunity indicators (`c`, `e`, `x`) > Generic unknown (`?`)
 
 ## API Response Data
 
@@ -125,10 +139,11 @@ S-o-E |
 ## Important Rules
 
 ### Point Management
-1. **Points in Hand**: Gained by visiting/revisiting tiles, AT RISK if you accidentally exit
-2. **Points in Bag**: Secured at Collection points, SAFE forever
-3. **Revisiting**: Every tile gives rewards on each visit
-4. **Collection Strategy**: Secure points regularly to avoid loss
+1. **Points in Hand**: Gained by visiting/revisiting tiles, **LOST FOREVER when exiting maze**
+2. **Points in Bag**: Secured at Collection points, **SAFE and permanent**
+3. **Exit Warning**: Exiting with points in hand = losing those points permanently
+4. **Revisiting**: Every tile gives rewards on each visit
+5. **Collection Strategy**: Secure points regularly to avoid loss - only exit with zero points in hand
 
 ### Movement Rules
 1. **Registration Required**: Must register before entering any maze
@@ -152,6 +167,11 @@ S-o-E |
 - **allowsScoreCollection**: Whether destination is Collection point
 - **allowsExit**: Whether destination is Exit point
 
+### DirectionOpportunities Data Persistence
+- **Automatic Tracking**: The system automatically tracks collection and exit opportunities in unexplored directions
+- **JSON Storage**: DirectionOpportunities data is saved to `~/.mazerunner-state.json` and persists across sessions
+- **Visual Integration**: Opportunity data is displayed as enhanced connection symbols (`c`, `e`, `x`) on the map
+
 ### From Current Position
 - **numberOfVisitsToTile**: How many times you've been here
 - **canCollectScoreHere**: Whether you can secure points now
@@ -167,5 +187,12 @@ S-o-E |
 ## Error Handling
 - **412 Errors**: Usually mean you need to register or enter a maze first
 - **409 Errors**: Often indicate you're already in a maze or have played it
-- **Invalid Moves**: Attempting moves not in possibleMoveActions will fail
+- **403 Errors**: "Not on an exit tile" when trying to exit from non-exit positions, or "Not on a collection tile" when trying to collect from non-collection positions
 - **State Recovery**: Use `status` command to understand current situation
+
+### Invalid Move Behavior
+- **No Errors for Invalid Moves**: Attempting moves not in `possibleMoveActions` does not generate API errors
+- **Server Response**: The server responds normally but the player position remains unchanged
+- **Application Handling**: The application updates with the server response, showing you stayed at the same position
+- **Position Tracking**: The MapTracker detects when moves don't change position and handles accordingly
+- **Validation**: Only `collect` and `exit` actions generate 403 errors when attempted in wrong locations
