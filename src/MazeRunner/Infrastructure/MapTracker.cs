@@ -218,8 +218,10 @@ public sealed class MapTracker : IMapTracker
 
                 if (y > minY)
                 {
-                    var hasExploredDown = value is { } && value.Links.Contains(Direction.Down);
-                    var hasUnexploredDown = value is { } && !hasExploredDown && value.PossibleMoves.Contains(Direction.Down);
+                    // Check the node above this position for Down connections
+                    var nodeAbove = _nodes.TryGetValue((x, y - 1), out var aboveNode) ? aboveNode : null;
+                    var hasExploredDown = nodeAbove?.Links.Contains(Direction.Down) == true;
+                    var hasUnexploredDown = nodeAbove != null && !hasExploredDown && nodeAbove.PossibleMoves.Contains(Direction.Down);
                     if (hasExploredDown)
                         rowLinks.Append("|");
                     else if (hasUnexploredDown)
