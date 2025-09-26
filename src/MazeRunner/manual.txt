@@ -1,0 +1,145 @@
+# MazeRunner Manual
+
+## Overview
+MazeRunner is a CLI-based maze solving application that provides persistent state tracking and enhanced visualization for systematic maze exploration.
+
+## Goals
+- **PRIMARY GOAL**: Collect ALL possible points from any maze
+- **SECONDARY GOAL**: Use as few steps as possible
+
+## Command Line Interface
+
+### Basic Usage
+```
+dotnet run --no-build -- "<command> [parameters]"
+```
+
+### Essential Commands
+- `register "<name>"` - Register with the maze system (required first step)
+- `enter "<mazeName>"` - Enter a specific maze
+- `move <direction>` - Move in direction: u/up, d/down, l/left, r/right
+- `collect` - Collect points in hand and secure them in bag at Collection points
+- `exit` - Exit the current maze (only possible at Exit points)
+- `map` - Display current maze visualization
+- `status` - Show current game state and possible actions
+- `forget` - Reset all progress (requires confirmation)
+
+### Command Examples
+```
+dotnet run --no-build -- "register" "MyName"
+dotnet run --no-build -- "enter Test"
+dotnet run --no-build -- "move u"
+dotnet run --no-build -- "collect"
+dotnet run --no-build -- "map"
+```
+
+## Visualization System
+
+### Position Markers (Priority Order)
+1. `@` = **Current position** (highest priority - always shows where you are)
+2. `C` = **Collection point** (can secure points in bag here)
+3. `E` = **Exit point** (can leave maze here)
+4. `X` = **Collection AND Exit** (both functions available)
+5. `S` = **Start point** (lowest priority - only shown if no special functions)
+6. `o` = **Regular explored tile**
+
+### Connection Indicators
+- `-` = **Confirmed horizontal connection** (you can move left/right here)
+- `|` = **Confirmed vertical connection** (you can move up/down here)
+- `?` = **UNEXPLORED direction available** (possible move you haven't tried)
+- ` ` = **No connection** (wall or impassable)
+
+### Example Visualization
+```
+C-o-o-@
+|   ? |
+S-o-E |
+    | |
+    o-X
+```
+**Interpretation:**
+- Current position `@` has unexplored down direction `?`
+- Collection point `C` available (top-left)
+- Exit point `E` available (bottom-middle)
+- Combined point `X` available (bottom-right)
+- All `-` and `|` show confirmed passable connections
+- Start point `S` shown because it has no special capabilities
+
+## API Response Data
+
+### Move/Enter Response Structure
+```json
+{
+  "possibleMoveActions": [
+    {
+      "direction": "Up",
+      "isStart": false,
+      "allowsExit": false,
+      "allowsScoreCollection": true,
+      "hasBeenVisited": false,
+      "numberOfVisitsToTile": 0,
+      "rewardOnDestination": 10
+    }
+  ],
+  "canCollectScoreHere": false,
+  "canExitMazeHere": false,
+  "currentScoreInHand": 15,
+  "currentScoreInBag": 100,
+  "numberOfVisitsToTile": 1
+}
+```
+
+### Key Response Properties
+- **possibleMoveActions**: Array of available directions with metadata
+- **canCollectScoreHere**: true if current position is Collection point
+- **canExitMazeHere**: true if current position is Exit point
+- **currentScoreInHand**: Points at risk (lost if you accidentally exit)
+- **currentScoreInBag**: Secured points (safe, cannot be lost)
+- **rewardOnDestination**: Points gained by moving to that direction
+
+## Important Rules
+
+### Point Management
+1. **Points in Hand**: Gained by visiting/revisiting tiles, AT RISK if you accidentally exit
+2. **Points in Bag**: Secured at Collection points, SAFE forever
+3. **Revisiting**: Every tile gives rewards on each visit
+4. **Collection Strategy**: Secure points regularly to avoid loss
+
+### Movement Rules
+1. **Registration Required**: Must register before entering any maze
+2. **One Maze at a Time**: Exit current maze before entering another
+3. **Exit Restrictions**: Can only exit at positions where `canExitMazeHere: true`
+4. **Collection Restrictions**: Can only collect points where `canCollectScoreHere: true`
+
+### State Persistence
+- **Automatic Saving**: All exploration data saved to `~/.mazerunner-state.json`
+- **Cross-Session**: Can resume exploration after restarting application
+- **Maze Switching**: State resets when entering different mazes
+- **Manual Reset**: Use `forget` command to clear all progress
+
+## Strategic Information Available
+
+### From possibleMoveActions Array
+- **Direction**: Which way you can move
+- **hasBeenVisited**: Whether you've been to that tile before
+- **numberOfVisitsToTile**: How many times you've visited that neighboring tile
+- **rewardOnDestination**: Points you'll gain by moving there
+- **allowsScoreCollection**: Whether destination is Collection point
+- **allowsExit**: Whether destination is Exit point
+
+### From Current Position
+- **numberOfVisitsToTile**: How many times you've been here
+- **canCollectScoreHere**: Whether you can secure points now
+- **canExitMazeHere**: Whether you can exit the maze now
+
+## Success Criteria
+1. **Complete Exploration**: All `?` symbols resolved (no unexplored directions remain)
+2. **Maximum Points**: All tiles visited multiple times for maximum rewards
+3. **Secure Points**: All points in hand secured to bag at Collection points
+4. **Safe Exit**: Exit only after achieving objectives, with all points secured
+
+## Error Handling
+- **412 Errors**: Usually mean you need to register or enter a maze first
+- **409 Errors**: Often indicate you're already in a maze or have played it
+- **Invalid Moves**: Attempting moves not in possibleMoveActions will fail
+- **State Recovery**: Use `status` command to understand current situation
