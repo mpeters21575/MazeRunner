@@ -150,11 +150,35 @@ public sealed class MapTracker : IMapTracker
         LoadState();
         
         var dir = Parse(directionKey);
-        var delta = Delta(dir);
         var from = _possition;
-        var to = (from.x + delta.xDirection, from.y + delta.yDirection);
-
         var fromNode = Get(from);
+        
+        // Validate that the move is actually possible from current position
+        if (!fromNode.PossibleMoves.Contains(dir))
+        {
+            // Invalid move - server didn't move us, so don't update position
+            // Just update the current node's possible moves with the server response
+            fromNode.PossibleMoves.Clear();
+            foreach (var move in possibleMoves)
+            {
+                if (TryParse(move, out var direction))
+                {
+                    fromNode.PossibleMoves.Add(direction);
+                }
+            }
+            
+            // Update current position properties but don't change position
+            fromNode.CanCollectScore = canCollectScore;
+            fromNode.CanExit = canExit;
+            
+            Set(from, fromNode);
+            SaveState();
+            return;
+        }
+        
+        // Valid move - proceed with position update
+        var delta = Delta(dir);
+        var to = (from.x + delta.xDirection, from.y + delta.yDirection);
         var toNode = Get(to);
 
         fromNode.Links.Add(dir);
@@ -192,6 +216,17 @@ public sealed class MapTracker : IMapTracker
         var minY = _nodes.Keys.Min(k => k.y);
         var maxY = _nodes.Keys.Max(k => k.y);
 
+        // Expand bounds to show unexplored connections (? symbols)
+        foreach (var kvp in _nodes)
+        {
+            var pos = kvp.Key;
+            var node = kvp.Value;
+            if (node.PossibleMoves.Contains(Direction.Up)) maxY = Math.Max(maxY, pos.y + 1);
+            if (node.PossibleMoves.Contains(Direction.Down)) minY = Math.Min(minY, pos.y - 1);
+            if (node.PossibleMoves.Contains(Direction.Right)) maxX = Math.Max(maxX, pos.x + 1);
+            if (node.PossibleMoves.Contains(Direction.Left)) minX = Math.Min(minX, pos.x - 1);
+        }
+
         var sb = new StringBuilder();
         for (var y = maxY; y >= minY; y--)
         {
@@ -200,10 +235,11 @@ public sealed class MapTracker : IMapTracker
 
             for (var x = minX; x <= maxX; x++)
             {
-                var here = (x: x,y);
+                var here = (x: x, y);
                 var value = _nodes.TryGetValue(here, out var node) ? node : null;
 
                 rowTiles.Append(Symbol(value, here == _possition));
+                
                 if (x < maxX)
                 {
                     var hasExploredRight = value is { } && value.Links.Contains(Direction.Right);
@@ -218,13 +254,20 @@ public sealed class MapTracker : IMapTracker
 
                 if (y > minY)
                 {
-                    // Check the node above this position for Down connections
-                    var nodeAbove = _nodes.TryGetValue((x, y - 1), out var aboveNode) ? aboveNode : null;
-                    var hasExploredDown = nodeAbove?.Links.Contains(Direction.Down) == true;
-                    var hasUnexploredDown = nodeAbove != null && !hasExploredDown && nodeAbove.PossibleMoves.Contains(Direction.Down);
-                    if (hasExploredDown)
+                    // Check for vertical connections between this row (y) and the row below (y-1)
+                    var nodeBelow = _nodes.TryGetValue((x, y - 1), out var belowNode) ? belowNode : null;
+                    
+                    // Check current position for Down connections
+                    var hasExploredDown = value?.Links.Contains(Direction.Down) == true;
+                    var hasUnexploredDown = value != null && !hasExploredDown && value.PossibleMoves.Contains(Direction.Down);
+                    
+                    // Check node below for Up connections
+                    var hasExploredUp = nodeBelow?.Links.Contains(Direction.Up) == true;
+                    var hasUnexploredUp = nodeBelow != null && !hasExploredUp && nodeBelow.PossibleMoves.Contains(Direction.Up);
+                    
+                    if (hasExploredDown || hasExploredUp)
                         rowLinks.Append("|");
-                    else if (hasUnexploredDown)
+                    else if (hasUnexploredDown || hasUnexploredUp)
                         rowLinks.Append("?");
                     else
                         rowLinks.Append(" ");
