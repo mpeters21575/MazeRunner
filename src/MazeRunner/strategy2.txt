@@ -1,23 +1,101 @@
-# MazeRunner Strategy: Target-Driven Point Collection
+MAZE SOLVING STRATEGY GUIDE
+===========================
 
-## Core Philosophy
-Achieve the exact maximum points shown in the `list` command efficiently through strategic exploration and risk management. No over-exploration needed once target is reached.
+Based on successful completion of Loops maze (122/122 points) vs failed Glasses attempt (0/272)
 
-## Pre-Game: Intelligence Gathering
+CRITICAL GAME MECHANICS LEARNED:
+--------------------------------
+1. COLLECTION IS MANDATORY FOR SCORING
+   - Points accumulate "in hand" as you move to new positions
+   - Points "in hand" are LOST when you exit the maze
+   - Must use 'collect' command at positions where canCollectScoreHere=true
+   - Collected points go to "bag" and are secured permanently
+   - Only points in "bag" count toward final score
 
-### Step 0: Know Your Target
-```
-dotnet run --no-build -- "list"
-```
-- **Mandatory first step**: Identify target score for chosen maze
-- **Maze selection**: Consider reward-to-tile ratio (e.g., Glasses: 272÷30 = 9.1 points/tile)
-- **Complexity assessment**: Higher tile count = more complex navigation
-- **Strategy adjustment**: Different mazes may require different approaches
+2. TRACKING ACCURACY IS ESSENTIAL
+   - Server may reject moves that seem logical from our map
+   - Never assume bidirectional connections
+   - Use server response possibleMoves to determine actual available paths
+   - Validate moves against current position's possibleMoves before attempting
 
-### Target Tracking
-- **Goal clarity**: You need exactly the "Potential rewards" number in your bag
-- **Progress monitoring**: Track `currentScoreInBag` vs target throughout exploration
-- **Completion certainty**: When bag = target, you're done (regardless of unexplored areas)
+MAP ANALYSIS & DECISION MAKING:
+-------------------------------
+
+RESPONSE ANALYSIS PATTERNS:
+- possibleMoveActions[].rewardOnDestination: Points gained by moving there
+- possibleMoveActions[].allowsScoreCollection: Can secure points at destination
+- possibleMoveActions[].allowsExit: Can complete maze from destination
+- possibleMoveActions[].hasBeenVisited: Avoid unless strategically necessary
+- currentScoreInHand: Unsecured points (at risk of loss)
+- currentScoreInBag: Secured points (safe)
+
+EFFICIENT SOLVING APPROACH:
+---------------------------
+
+PHASE 1: EXPLORATION & MAPPING
+- Systematically explore all reachable positions
+- Prioritize unvisited positions (hasBeenVisited=false)
+- Track collection points (allowsScoreCollection=true) locations
+- Note exit points (allowsExit=true) for end-game planning
+- Build complete map before optimizing collection strategy
+
+PHASE 2: COLLECTION STRATEGY
+- Don't hoard all points before first collection (risk of loss)
+- Collect when reaching 50-100 points in hand (balance risk vs efficiency)
+- Always collect before exploring risky/dead-end areas
+- Collection points may be limited - use them strategically
+
+PHASE 3: OPTIMIZATION & COMPLETION  
+- After full exploration, calculate optimal collection sequence
+- Minimize backtracking by collecting on logical path segments
+- Ensure all rewardOnDestination points are claimed
+- Exit only when currentScoreInBag equals maximum possible points
+
+MOVEMENT DECISION LOGIC:
+-----------------------
+1. Check status response for current possibleMoveActions
+2. For each possible move, evaluate:
+   - rewardOnDestination (immediate value)
+   - hasBeenVisited (exploration priority)
+   - allowsScoreCollection (strategic value)
+   - allowsExit (completion possibility)
+3. Decision priority:
+   a) Unvisited positions with highest rewards
+   b) Collection points when hand > threshold (50-100)
+   c) Exit points when bag = maximum possible score
+   d) Backtrack to unexplored areas
+
+ERROR PREVENTION:
+----------------
+- Always validate moves against server possibleMoves
+- Don't assume maze symmetry or standard geometry
+- Server state is truth - our tracking may have gaps
+- Test moves with single commands rather than long sequences
+
+SCORING EFFICIENCY:
+------------------
+- Target: 100% of listed "Potential rewards" for the maze
+- Track: currentScoreInHand + currentScoreInBag vs target
+- Collect strategically to minimize API calls while securing points
+- Remember: "fewest API calls for same score wins"
+
+KEY SUCCESS FACTORS:
+-------------------
+1. Understand collection mechanics (hand vs bag)
+2. Server-response driven navigation (don't assume connections)
+3. Strategic collection timing (not too early, not too late)
+4. Complete exploration before optimization
+5. Validate final score matches maze potential before exit
+
+LESSONS FROM LOOPS MAZE SUCCESS:
+-------------------------------
+- Simple 15-tile maze with clear loop structure
+- Multiple collection opportunities found and used
+- Systematic exploration revealed all 122 potential points
+- Strategic collection at midpoint (111 points) and before exit (11 points)
+- Perfect execution: 122/122 points secured
+
+The fixed tracking logic (server-response driven) was crucial for accurate mapping and successful navigation.
 
 ## Phase 1: Intelligent Exploration with Target Awareness
 
