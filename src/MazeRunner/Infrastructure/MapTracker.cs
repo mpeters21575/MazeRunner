@@ -8,7 +8,9 @@ public interface IMapTracker
 {
     void Reset();
     void Enter();
+    void Enter(bool canCollectScore, bool canExit);
     void Move(string directionKey);
+    void Move(string directionKey, bool canCollectScore, bool canExit);
     string RenderAscii();
     void LoadState();
     void SaveState();
@@ -37,7 +39,9 @@ public sealed class MapTracker : IMapTracker
             {
                 var node = new Node
                 {
-                    IsStart = nodeData.IsStart
+                    IsStart = nodeData.IsStart,
+                    CanCollectScore = nodeData.CanCollectScore,
+                    CanExit = nodeData.CanExit
                 };
                 foreach (var direction in nodeData.Links)
                 {
@@ -66,6 +70,8 @@ public sealed class MapTracker : IMapTracker
                     X = kvp.Key.x,
                     Y = kvp.Key.y,
                     IsStart = kvp.Value.IsStart,
+                    CanCollectScore = kvp.Value.CanCollectScore,
+                    CanExit = kvp.Value.CanExit,
                     Links = kvp.Value.Links.Select(d => (int)d).ToList()
                 }).ToList()
             };
@@ -88,18 +94,30 @@ public sealed class MapTracker : IMapTracker
 
     public void Enter()
     {
+        Enter(false, false);
+    }
+
+    public void Enter(bool canCollectScore, bool canExit)
+    {
         LoadState();
         // Only reset if we don't have any saved state
         if (_nodes.Count == 0)
         {
             var n = Get(_possition);
             n.IsStart = true;
+            n.CanCollectScore = canCollectScore;
+            n.CanExit = canExit;
             Set(_possition, n);
             SaveState();
         }
     }
 
     public void Move(string directionKey)
+    {
+        Move(directionKey, false, false);
+    }
+
+    public void Move(string directionKey, bool canCollectScore, bool canExit)
     {
         LoadState();
         
@@ -113,6 +131,10 @@ public sealed class MapTracker : IMapTracker
 
         fromNode.Links.Add(dir);
         toNode.Links.Add(Opposite(dir));
+        
+        // Update the destination node with the special properties
+        toNode.CanCollectScore = canCollectScore;
+        toNode.CanExit = canExit;
 
         Set(from, fromNode);
         Set(to, toNode);
@@ -192,8 +214,16 @@ public sealed class MapTracker : IMapTracker
     {
         if (current) return "@";
         if (node is null) return " ";
+        
+        // Special tiles with collection and/or exit capabilities (priority over start)
+        if (node.CanCollectScore && node.CanExit) return "X"; // Both collection and exit
+        if (node.CanCollectScore) return "C"; // Collection point
+        if (node.CanExit) return "E"; // Exit point
+        
+        // Only show start if it has no special capabilities
         if (node.IsStart) return "S";
-        return "o";
+        
+        return "o"; // Regular tile
     }
 
     private Node Get((int x,int y) coordinates)
@@ -209,6 +239,8 @@ public sealed class MapTracker : IMapTracker
     private sealed class Node
     {
         public bool IsStart { get; set; }
+        public bool CanCollectScore { get; set; }
+        public bool CanExit { get; set; }
         public HashSet<Direction> Links { get; } = new();
     }
 }
@@ -226,5 +258,7 @@ public class NodeData
     public int X { get; set; }
     public int Y { get; set; }
     public bool IsStart { get; set; }
+    public bool CanCollectScore { get; set; }
+    public bool CanExit { get; set; }
     public List<int> Links { get; set; } = new();
 }
