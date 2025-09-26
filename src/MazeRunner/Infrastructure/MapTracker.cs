@@ -181,20 +181,37 @@ public sealed class MapTracker : IMapTracker
         var to = (from.x + delta.xDirection, from.y + delta.yDirection);
         var toNode = Get(to);
 
+        // TRACKING LESSON: Only add outgoing links, don't assume bidirectional connections!
+        // The maze may have one-way passages or blocked returns
         fromNode.Links.Add(dir);
-        toNode.Links.Add(Opposite(dir));
         
-        // Update the destination node with the special properties
+        // COLLECTION STRATEGY: Track these flags carefully - they determine scoring opportunities!
+        // CanCollectScore = secure points here with 'collect' command BEFORE exiting
+        // CanExit = potential maze completion point, but only exit with points in bag!
         toNode.CanCollectScore = canCollectScore;
         toNode.CanExit = canExit;
         
         // Parse and store possible moves for the destination
+        // Use these to determine which links exist FROM the destination
         toNode.PossibleMoves.Clear();
+        toNode.Links.Clear(); // Clear existing links and rebuild from server response
+        
         foreach (var move in possibleMoves)
         {
             if (TryParse(move, out var direction))
             {
                 toNode.PossibleMoves.Add(direction);
+                
+                // Check if this direction leads to a known visited position
+                var deltaMove = Delta(direction);
+                var adjacentPos = (to.Item1 + deltaMove.xDirection, to.Item2 + deltaMove.yDirection);
+                
+                if (_nodes.ContainsKey(adjacentPos))
+                {
+                    // We know this adjacent position exists and has been visited
+                    // So we can create a link to it
+                    toNode.Links.Add(direction);
+                }
             }
         }
 
@@ -227,56 +244,77 @@ public sealed class MapTracker : IMapTracker
             if (node.PossibleMoves.Contains(Direction.Left)) minX = Math.Min(minX, pos.x - 1);
         }
 
-        var sb = new StringBuilder();
-        for (var y = maxY; y >= minY; y--)
+        // Create 2D array: (2*width+1) x (2*height+1)
+        // Odd positions are for nodes, even positions are for connections
+        var width = maxX - minX + 1;
+        var height = maxY - minY + 1;
+        var grid = new char[2 * height + 1, 2 * width + 1];
+        
+        // Initialize with spaces
+        for (var row = 0; row < grid.GetLength(0); row++)
+            for (var col = 0; col < grid.GetLength(1); col++)
+                grid[row, col] = ' ';
+
+        // Helper function to convert world coordinates to grid coordinates
+        int WorldToGridX(int worldX) => 2 * (worldX - minX) + 1;
+        int WorldToGridY(int worldY) => 2 * (maxY - worldY) + 1;
+
+        // Place all nodes first
+        foreach (var kvp in _nodes)
         {
-            var rowTiles = new StringBuilder();
-            var rowLinks = new StringBuilder();
+            var pos = kvp.Key;
+            var node = kvp.Value;
+            var gridX = WorldToGridX(pos.x);
+            var gridY = WorldToGridY(pos.y);
+            
+            grid[gridY, gridX] = Symbol(node, pos == _possition)[0];
+        }
 
-            for (var x = minX; x <= maxX; x++)
+        // Place all connections with precedence: - and | always win over ?
+        foreach (var kvp in _nodes)
+        {
+            var pos = kvp.Key;
+            var node = kvp.Value;
+            var gridX = WorldToGridX(pos.x);
+            var gridY = WorldToGridY(pos.y);
+
+            // Check each direction for connections
+            foreach (Direction dir in Enum.GetValues<Direction>())
             {
-                var here = (x: x, y);
-                var value = _nodes.TryGetValue(here, out var node) ? node : null;
-
-                rowTiles.Append(Symbol(value, here == _possition));
+                var hasExplored = node.Links.Contains(dir);
+                var hasUnexplored = !hasExplored && node.PossibleMoves.Contains(dir);
                 
-                if (x < maxX)
-                {
-                    var hasExploredRight = value is { } && value.Links.Contains(Direction.Right);
-                    var hasUnexploredRight = value is { } && !hasExploredRight && value.PossibleMoves.Contains(Direction.Right);
-                    if (hasExploredRight)
-                        rowTiles.Append("-");
-                    else if (hasUnexploredRight)
-                        rowTiles.Append("?");
-                    else
-                        rowTiles.Append(" ");
-                }
+                if (!hasExplored && !hasUnexplored) continue;
 
-                if (y > minY)
+                var (dx, dy) = Delta(dir);
+                var connectionGridX = gridX + dx;
+                var connectionGridY = gridY - dy; // Note: Y is inverted in grid
+
+                // Check bounds
+                if (connectionGridX < 0 || connectionGridX >= grid.GetLength(1) ||
+                    connectionGridY < 0 || connectionGridY >= grid.GetLength(0))
+                    continue;
+
+                var symbol = hasExplored ? (dir == Direction.Up || dir == Direction.Down ? '|' : '-') : '?';
+                
+                // Apply precedence: - and | always win over ? 
+                var current = grid[connectionGridY, connectionGridX];
+                if (current == ' ' || (current == '?' && (symbol == '-' || symbol == '|')))
                 {
-                    // Check for vertical connections between this row (y) and the row below (y-1)
-                    var nodeBelow = _nodes.TryGetValue((x, y - 1), out var belowNode) ? belowNode : null;
-                    
-                    // Check current position for Down connections
-                    var hasExploredDown = value?.Links.Contains(Direction.Down) == true;
-                    var hasUnexploredDown = value != null && !hasExploredDown && value.PossibleMoves.Contains(Direction.Down);
-                    
-                    // Check node below for Up connections
-                    var hasExploredUp = nodeBelow?.Links.Contains(Direction.Up) == true;
-                    var hasUnexploredUp = nodeBelow != null && !hasExploredUp && nodeBelow.PossibleMoves.Contains(Direction.Up);
-                    
-                    if (hasExploredDown || hasExploredUp)
-                        rowLinks.Append("|");
-                    else if (hasUnexploredDown || hasUnexploredUp)
-                        rowLinks.Append("?");
-                    else
-                        rowLinks.Append(" ");
-                    if (x < maxX) rowLinks.Append(" ");
+                    grid[connectionGridY, connectionGridX] = symbol;
                 }
             }
+        }
 
-            sb.AppendLine(rowTiles.ToString());
-            if (y > minY) sb.AppendLine(rowLinks.ToString());
+        // Convert grid to string
+        var sb = new StringBuilder();
+        for (var row = 0; row < grid.GetLength(0); row++)
+        {
+            for (var col = 0; col < grid.GetLength(1); col++)
+            {
+                sb.Append(grid[row, col]);
+            }
+            sb.AppendLine();
         }
 
         return sb.ToString();
