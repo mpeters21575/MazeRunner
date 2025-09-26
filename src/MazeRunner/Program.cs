@@ -36,6 +36,9 @@ builder.Services.Scan(s => s
             .WithSingletonLifetime()
         .AddClasses(c => c.AssignableTo<CommandRouter>())
             .AsSelf()
+            .WithSingletonLifetime()
+        .AddClasses(c => c.AssignableTo<MazeRunner.Presentation.IExecutionContext>())
+            .AsImplementedInterfaces()
             .WithSingletonLifetime());
 
 builder.Services.AddSingleton<ConsoleUi>();
@@ -46,10 +49,12 @@ var service = host.Services.GetRequiredService<IConfiguration>();
 ValidateAuth(service);
 
 var ui = host.Services.GetRequiredService<ConsoleUi>();
+var executionContext = host.Services.GetRequiredService<MazeRunner.Presentation.IExecutionContext>() as MazeRunner.Presentation.ExecutionContext;
 
 // Check if commands were provided via command line arguments
 if (args.Length > 0)
 {
+    executionContext?.SetCommandLineMode();
     await ui.RunCommandsAsync(args);
 }
 else
