@@ -9,8 +9,10 @@ public interface IMapTracker
     void Reset();
     void Enter();
     void Enter(bool canCollectScore, bool canExit);
+    void Enter(bool canCollectScore, bool canExit, string[] possibleMoves);
     void Move(string directionKey);
     void Move(string directionKey, bool canCollectScore, bool canExit);
+    void Move(string directionKey, bool canCollectScore, bool canExit, string[] possibleMoves);
     string RenderAscii();
     void LoadState();
     void SaveState();
@@ -47,6 +49,10 @@ public sealed class MapTracker : IMapTracker
                 {
                     node.Links.Add((Direction)direction);
                 }
+                foreach (var direction in nodeData.PossibleMoves)
+                {
+                    node.PossibleMoves.Add((Direction)direction);
+                }
                 _nodes[(nodeData.X, nodeData.Y)] = node;
             }
         }
@@ -72,7 +78,8 @@ public sealed class MapTracker : IMapTracker
                     IsStart = kvp.Value.IsStart,
                     CanCollectScore = kvp.Value.CanCollectScore,
                     CanExit = kvp.Value.CanExit,
-                    Links = kvp.Value.Links.Select(d => (int)d).ToList()
+                    Links = kvp.Value.Links.Select(d => (int)d).ToList(),
+                    PossibleMoves = kvp.Value.PossibleMoves.Select(d => (int)d).ToList()
                 }).ToList()
             };
 
@@ -99,6 +106,11 @@ public sealed class MapTracker : IMapTracker
 
     public void Enter(bool canCollectScore, bool canExit)
     {
+        Enter(canCollectScore, canExit, Array.Empty<string>());
+    }
+
+    public void Enter(bool canCollectScore, bool canExit, string[] possibleMoves)
+    {
         LoadState();
         // Only reset if we don't have any saved state
         if (_nodes.Count == 0)
@@ -107,6 +119,17 @@ public sealed class MapTracker : IMapTracker
             n.IsStart = true;
             n.CanCollectScore = canCollectScore;
             n.CanExit = canExit;
+            
+            // Parse and store possible moves
+            n.PossibleMoves.Clear();
+            foreach (var move in possibleMoves)
+            {
+                if (TryParse(move, out var direction))
+                {
+                    n.PossibleMoves.Add(direction);
+                }
+            }
+            
             Set(_possition, n);
             SaveState();
         }
@@ -118,6 +141,11 @@ public sealed class MapTracker : IMapTracker
     }
 
     public void Move(string directionKey, bool canCollectScore, bool canExit)
+    {
+        Move(directionKey, canCollectScore, canExit, Array.Empty<string>());
+    }
+
+    public void Move(string directionKey, bool canCollectScore, bool canExit, string[] possibleMoves)
     {
         LoadState();
         
@@ -135,6 +163,16 @@ public sealed class MapTracker : IMapTracker
         // Update the destination node with the special properties
         toNode.CanCollectScore = canCollectScore;
         toNode.CanExit = canExit;
+        
+        // Parse and store possible moves for the destination
+        toNode.PossibleMoves.Clear();
+        foreach (var move in possibleMoves)
+        {
+            if (TryParse(move, out var direction))
+            {
+                toNode.PossibleMoves.Add(direction);
+            }
+        }
 
         Set(from, fromNode);
         Set(to, toNode);
@@ -167,12 +205,27 @@ public sealed class MapTracker : IMapTracker
 
                 rowTiles.Append(Symbol(value, here == _possition));
                 if (x < maxX)
-                    rowTiles.Append(value is { } && value.Links.Contains(Direction.Right) ? "-" : " ");
+                {
+                    var hasExploredRight = value is { } && value.Links.Contains(Direction.Right);
+                    var hasUnexploredRight = value is { } && !hasExploredRight && value.PossibleMoves.Contains(Direction.Right);
+                    if (hasExploredRight)
+                        rowTiles.Append("-");
+                    else if (hasUnexploredRight)
+                        rowTiles.Append("?");
+                    else
+                        rowTiles.Append(" ");
+                }
 
                 if (y > minY)
                 {
-                    var hasDown = value is { } && value.Links.Contains(Direction.Down);
-                    rowLinks.Append(hasDown ? "|" : " ");
+                    var hasExploredDown = value is { } && value.Links.Contains(Direction.Down);
+                    var hasUnexploredDown = value is { } && !hasExploredDown && value.PossibleMoves.Contains(Direction.Down);
+                    if (hasExploredDown)
+                        rowLinks.Append("|");
+                    else if (hasUnexploredDown)
+                        rowLinks.Append("?");
+                    else
+                        rowLinks.Append(" ");
                     if (x < maxX) rowLinks.Append(" ");
                 }
             }
@@ -192,6 +245,20 @@ public sealed class MapTracker : IMapTracker
         if (new[] { "d", "down", "↓" }.Contains(value)) return Direction.Down;
         if (new[] { "l", "left", "←" }.Contains(value)) return Direction.Left;
         throw new ArgumentException("invalid direction");
+    }
+
+    private static bool TryParse(string key, out Direction direction)
+    {
+        try
+        {
+            direction = Parse(key);
+            return true;
+        }
+        catch
+        {
+            direction = default;
+            return false;
+        }
     }
 
     private static (int xDirection, int yDirection) Delta(Direction direction)
@@ -242,6 +309,7 @@ public sealed class MapTracker : IMapTracker
         public bool CanCollectScore { get; set; }
         public bool CanExit { get; set; }
         public HashSet<Direction> Links { get; } = new();
+        public HashSet<Direction> PossibleMoves { get; } = new();
     }
 }
 
@@ -261,4 +329,5 @@ public class NodeData
     public bool CanCollectScore { get; set; }
     public bool CanExit { get; set; }
     public List<int> Links { get; set; } = new();
+    public List<int> PossibleMoves { get; set; } = new();
 }

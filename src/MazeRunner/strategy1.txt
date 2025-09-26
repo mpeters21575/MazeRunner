@@ -1,0 +1,186 @@
+## Maze Solving Strategy 1: Complete Point Collection
+
+## Objective
+- PRIMARY: Collect ALL possible points from the maze
+- SECONDARY: Minimize total steps taken
+
+## Prerequisites
+- Enhanced maze visualization with C (Collection), E (Exit), X (Both) symbols
+- **NEW: Possible moves visualization showing unexplored directions**
+- Persistent maze state across command executions
+- Command-line interface for systematic execution
+
+## Key Enhancement: Possible Moves Intelligence
+
+### What We Now Track
+- **possibleMoveActions**: API tells us exactly which directions are available from each position
+- **Unexplored vs Known**: We can distinguish between directions we haven't tried vs confirmed connections
+- **Dead-end Detection**: Positions with only one possible move are immediately identifiable
+- **Strategic Planning**: No more guessing - we know all available options before moving
+
+### How This Improves Strategy
+- **Eliminate Failed Attempts**: Never try impossible moves
+- **Identify Unexplored Areas**: Focus exploration on unknown directions
+- **Optimize Pathfinding**: Choose routes based on known connectivity
+- **Detect Strategic Points**: Intersections and dead-ends become obviousving Strategy 1: Complete Point Collection
+
+## Objective
+- PRIMARY: Collect ALL possible points from the maze
+- SECONDARY: Minimize total steps taken
+
+## Prerequisites
+- Enhanced maze visualization with C (Collection), E (Exit), X (Both) symbols
+- Persistent maze state across command executions
+- Command-line interface for systematic execution
+
+## Phase 1: Complete Exploration and Mapping
+
+### 1.1 Systematic Exploration
+- Use depth-first search approach to map the entire maze
+- **NEW: Use possibleMoves data to identify unexplored directions**
+- At each position, prioritize unexplored directions from possibleMoves
+- Always explore unvisited tiles before revisiting known areas
+- Mark all special tiles (C, E, X) as discovered
+
+### 1.2 Smart Direction Selection
+- **Prioritize `?` symbols**: Always explore unexplored directions first
+- Check current position for `?` indicators showing available unexplored paths
+- Use confirmed connections (`-` and `|`) for efficient navigation to known areas
+- Avoid attempting moves where no connection exists (spaces)
+- Dead-end detection: positions with only one connection are immediately obvious
+
+### 1.2 Exploration Commands
+```
+# Enter the maze
+dotnet run --no-build -- "enter [MazeName]"
+
+# Systematic exploration - follow this pattern at each position:
+dotnet run --no-build -- "move u"  # Try up first
+dotnet run --no-build -- "move r"  # Then right
+dotnet run --no-build -- "move d"  # Then down  
+dotnet run --no-build -- "move l"  # Finally left
+
+# Check map frequently
+dotnet run --no-build -- map
+```
+
+### 1.3 Complete Mapping Criteria
+- Every reachable tile has been visited at least once
+- All Collection points (C) are identified
+- All Exit points (E) are identified
+- All combination points (X) are identified
+- No unexplored connections remain
+
+## Phase 2: Optimal Point Collection Route Planning
+
+### 2.1 Inventory Analysis
+- Count total rewards available in the maze
+- Identify all Collection points for securing rewards
+- Plan collection route to minimize backtracking
+
+### 2.2 Route Planning Strategy
+- Start from current position
+- Visit ALL tiles with rewards (even revisited tiles give rewards)
+- Collect rewards in hand until approaching Collection point
+- Secure points at Collection points (C or X) before continuing
+- Never exit without securing ALL possible points
+
+### 2.3 Collection Point Strategy
+- Always secure points before continuing to unexplored dangerous areas
+- If multiple Collection points exist, use the one closest to unexplored areas
+- Never carry more points in hand than necessary (risk of loss on unexpected exit)
+
+## Phase 3: Systematic Point Collection Execution
+
+### 3.1 Collection Loop Pattern
+```
+# Navigate to reward tiles
+dotnet run --no-build -- "move [direction]"
+
+# Continue until near Collection point or hand is full
+# When ready to secure points:
+dotnet run --no-build -- collect
+
+# Verify collection
+dotnet run --no-build -- map  # Check your position on Collection point
+```
+
+### 3.2 Full Coverage Strategy
+- Visit EVERY tile in the maze (revisiting gives rewards)
+- Systematically traverse the entire mapped area
+- Use Collection points strategically to secure points
+- Keep track of total possible points vs. points in bag
+
+## Phase 4: Exit Strategy
+
+### 4.1 Final Collection Verification
+- Ensure ALL possible points have been collected
+- Secure all points in hand at final Collection point
+- Verify total points in bag matches maximum possible
+
+### 4.2 Strategic Exit
+```
+# Navigate to chosen Exit point
+dotnet run --no-build -- "move [direction]"
+
+# Final exit
+dotnet run --no-build -- exit
+```
+
+## Execution Guidelines
+
+### Command Pattern for Each Maze
+1. `dotnet run --no-build -- "enter [MazeName]"`
+2. Complete exploration phase using systematic movement
+3. `dotnet run --no-build -- map` after every few moves
+4. Plan collection route based on discovered C/E/X points
+5. Execute collection systematically
+6. Secure points at Collection points regularly
+7. Exit only when ALL points are secured
+
+### Safety Rules
+- NEVER exit without securing points in bag
+- ALWAYS secure points before risky exploration
+- Use `map` command frequently to maintain situational awareness
+- If unsure about coverage, re-traverse entire maze
+
+### Verification Steps
+- Count total rewards shown in API responses
+- Track points collected vs. points secured in bag
+- Ensure no unexplored areas remain
+- Confirm all special tiles (C/E/X) have been utilized
+
+## Expected Outcomes
+- 100% point collection rate
+- Complete maze mapping with enhanced visualization
+- Systematic and repeatable approach
+- Efficient navigation with minimal wasted moves
+
+## Notes
+- This strategy prioritizes completeness over speed
+- The enhanced visualization (C/E/X symbols) is crucial for execution
+- **NEW: Unexplored direction indicators (`?`) enable perfect exploration**
+- Persistent maze state allows for methodical approach
+- Can be interrupted and resumed due to state persistence
+
+## Visualization Legend (CRITICAL for Strategy Execution)
+
+**Position Markers:**
+- `@` = Current position (highest priority)
+- `C` = Collection point (where you can secure points)
+- `E` = Exit point (where you can leave maze)
+- `X` = Both Collection AND Exit capabilities
+- `S` = Start point (lowest priority, only shown if no special capabilities)
+- `o` = Regular explored tile
+
+**Direction Indicators:**
+- `-` = **EXPLORED** horizontal connection (confirmed passable)
+- `|` = **EXPLORED** vertical connection (confirmed passable)
+- `?` = **UNEXPLORED** direction available (from possibleMoves API data)
+- (space) = No connection possible
+
+**Strategic Advantages:**
+- **Perfect Information**: No guessing required - `?` shows exactly where to explore
+- **Efficiency**: Never attempt impossible moves
+- **Dead-end Detection**: Obvious from connection patterns
+- **Route Planning**: Use confirmed connections for optimal navigation

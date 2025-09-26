@@ -25,7 +25,8 @@ public sealed class MoveCommand(IMazeService api, IDirectionParser parser, IApiE
         {
             var response = await api.MoveAsync(parser.Parse(key), ct);
             Render.Json(response);
-            map.Move(key, response.CanCollectScoreHere, response.CanExitMazeHere);
+            var possibleMoves = response.PossibleMoveActions?.Select(a => a.Direction.ToString()).ToArray() ?? Array.Empty<string>();
+            map.Move(key, response.CanCollectScoreHere, response.CanExitMazeHere, possibleMoves);
             Render.Map(map.RenderAscii());
         }
         catch (ApiException ex) when (errors.TryHandle("move", ex))
