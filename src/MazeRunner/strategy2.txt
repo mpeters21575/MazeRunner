@@ -1,0 +1,120 @@
+# MazeRunner Strategy: Target-Driven Point Collection
+
+## Core Philosophy
+Achieve the exact maximum points shown in the `list` command efficiently through strategic exploration and risk management. No over-exploration needed once target is reached.
+
+## Pre-Game: Intelligence Gathering
+
+### Step 0: Know Your Target
+```
+dotnet run --no-build -- "list"
+```
+- **Mandatory first step**: Identify target score for chosen maze
+- **Maze selection**: Consider reward-to-tile ratio (e.g., Glasses: 272÷30 = 9.1 points/tile)
+- **Complexity assessment**: Higher tile count = more complex navigation
+- **Strategy adjustment**: Different mazes may require different approaches
+
+### Target Tracking
+- **Goal clarity**: You need exactly the "Potential rewards" number in your bag
+- **Progress monitoring**: Track `currentScoreInBag` vs target throughout exploration
+- **Completion certainty**: When bag = target, you're done (regardless of unexplored areas)
+
+## Phase 1: Intelligent Exploration with Target Awareness
+
+### Exploration Priority System
+1. **Target-driven exploration**: Focus on finding points until target is reached
+2. **Unexplored directions first**: Priority on `?` symbols for discovering new point sources
+3. **Efficient point harvesting**: Use `numberOfVisitsToTile` data to balance revisiting
+4. **Strategic stopping**: Once `currentScoreInBag` = target, exploration becomes optional
+
+### Navigation Technique
+- **Progress-aware movement**: Always know how close you are to target score
+- **Risk vs reward**: Balance exploration with point securing based on gap to target
+- **Efficiency focus**: Minimize moves per point collected
+- **Smart revisiting**: Use neighbor visit counts to optimize point harvesting
+
+### Exploration Validation
+- **Target progress**: After each move, check progress toward target score
+- **Efficiency tracking**: Monitor points collected per move
+- **Completion check**: Stop when `currentScoreInBag` reaches target from list command
+- **Optional thoroughness**: Continue exploration only if you want to map the entire maze
+
+## Phase 2: Strategic Point Management
+
+### Risk Assessment
+- **Target-based risk**: Risk increases as you approach target score
+- **Low Risk**: <25% of target in hand, Collection point accessible
+- **Medium Risk**: 25-75% of target in hand, or Collection point >3 moves away  
+- **High Risk**: >75% of target in hand, or uncertain Collection point access
+- **Critical Risk**: Near target with significant points in hand
+
+### Collection Timing
+- **Immediate Collection**: When risk level is High or Critical
+- **Strategic Collection**: Before exploring when close to target score
+- **Milestone Collection**: At 25%, 50%, 75% of target achievement
+- **Final Collection**: Ensure target score is secured before exit
+
+### Point Optimization
+- **Target-focused harvesting**: Prioritize collecting points until target is reached
+- **Efficiency over completeness**: Stop revisiting when target achieved
+- **Neighbor visit balancing**: Use `numberOfVisitsToTile` in possibleMoveActions for optimal revisiting
+- **Reward density tracking**: Focus on high `rewardOnDestination` areas first
+- **Strategic revisiting**: Balance new exploration with harvesting known areas
+
+## Phase 3: Target Achievement Verification
+
+### Completion Checklist
+1. **Target Score Achieved**: `currentScoreInBag` equals "Potential rewards" from list
+2. **Zero Risk**: `currentScoreInHand` is zero (all points secured)
+3. **Mission Complete**: No further exploration required once target reached
+
+### Pre-Exit Protocol
+1. Verify `currentScoreInBag` = target score from list command
+2. Ensure `currentScoreInHand` = 0 (all points secured)
+3. Navigate to any available Exit point (`E` or `X` symbol)
+4. Execute exit command with confidence
+
+## Advanced Techniques
+
+### Multi-Path Analysis
+- When multiple `?` symbols available, analyze `possibleMoveActions` data
+- Prioritize unexplored directions leading to `allowsScoreCollection: true`
+- **Consider neighbor visit counts**: Use `numberOfVisitsToTile` to identify under-visited areas
+- **Reward vs. Visit optimization**: Balance `rewardOnDestination` against `numberOfVisitsToTile`
+- Factor in `hasBeenVisited: false` for areas with potential high rewards
+
+### Efficiency Optimization
+- Create mental map of Collection point locations for quick access
+- Plan routes that minimize backtracking while maintaining safety
+- **Visit balancing**: When choosing between explored directions, prefer neighbors with lower `numberOfVisitsToTile`
+- **Reward density mapping**: Track which areas provide highest rewards per visit
+- Use Exit points strategically (some may also be Collection points as `X`)
+- Leverage neighbor visit data to balance revisiting vs new exploration
+
+### Error Recovery
+- If accidentally approaching Exit with points in hand, immediately backtrack
+- Use `status` command when uncertain about current situation
+- If lost, use confirmed connections to return to known Collection points
+- When in doubt, secure points first, explore second
+
+### Decision Framework
+
+### At Each Position, Ask:
+1. **Target Progress**: How close am I to the target score?
+2. **Risk Level**: How many points am I risking in hand?
+3. **Efficiency**: What's the best points-per-move option available?
+4. **Security**: Should I secure points now or continue exploring?
+
+### Decision Priority Order:
+1. **Target Achievement**: If bag = target, mission complete!
+2. **Risk Management**: Secure points if risk level is High/Critical
+3. **Efficient Collection**: Move toward highest reward opportunities
+4. **Strategic Exploration**: Explore new areas if target not yet reached
+
+## Success Metrics
+- **Target Achievement**: `currentScoreInBag` = "Potential rewards" from list
+- **Zero Risk**: No points left in hand at completion
+- **Efficiency**: Achieve target with minimal moves (secondary goal)
+
+## Key Insight
+**You don't need to explore every `?` symbol if you've already achieved the target score.** The list command tells you exactly when you're done!
