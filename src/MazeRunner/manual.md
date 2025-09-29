@@ -25,15 +25,20 @@ dotnet run --no-build -- "<command> [parameters]"
 **IMPORTANT**: When using commands with parameters from the command line, you must quote the entire command and its parameters together as a single string.
 
 ### Essential Commands
-- `register "<name>"` - Register with the maze system (required first step)
-- `list` - **CRITICAL: Shows all mazes with maximum possible points and tile counts**
-- `enter "<mazeName>"` - Enter a specific maze
-- `move <direction>` - Move in direction: u/up, d/down, l/left, r/right
-- `collect` - Collect points in hand and secure them in bag at Collection points
-- `exit` - Exit the current maze (only possible at Exit points)
-- `map` - Display current maze visualization
-- `status` - Show current game state and possible actions
-- `forget` - Reset all progress (requires confirmation)
+- `register "<name>"` - **[API CALL]** Register with the maze system (required first step)
+- `list` - **[API CALL]** **CRITICAL: Shows all mazes with maximum possible points and tile counts**
+- `enter "<mazeName>"` - **[API CALL]** Enter a specific maze
+- `move <direction>` - **[API CALL]** Move in direction: u/up, d/down, l/left, r/right
+- `collect` - **[API CALL]** Collect points in hand and secure them in bag at Collection points
+- `exit` - **[API CALL]** Exit the current maze (only possible at Exit points)
+- `map` - **[LOCAL]** Display current maze visualization
+- `status` - **[API CALL]** Show current game state and possible actions
+- `forget` - **[API CALL]** Reset all progress (requires confirmation)
+- `help` - **[LOCAL]** Show available commands
+
+**API Call Legend:**
+- **[API CALL]**: Commands that make server requests and count toward your competition score
+- **[LOCAL]**: Commands that only use local data and do NOT count toward your score
 
 ### Command Examples
 ```
