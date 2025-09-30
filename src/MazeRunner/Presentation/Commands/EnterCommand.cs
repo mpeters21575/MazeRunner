@@ -21,8 +21,18 @@ public sealed class EnterCommand(IMazeService api, IApiErrorHandler errors, IMap
         var mazeName = string.Join(" ", parts.Skip(1));
         try
         {
-            Render.Json(await api.EnterAsync(mazeName, ct));
-            map.Enter();
+            var response = await api.EnterAsync(mazeName, ct);
+            Render.Json(response);
+            
+            // Create rich directional opportunity data
+            var directionOpportunities = response.PossibleMoveActions?.Select(a => new DirectionOpportunityInfo
+            {
+                Direction = a.Direction.ToString(),
+                AllowsCollection = a.AllowsScoreCollection,
+                AllowsExit = a.AllowsExit
+            }).ToArray() ?? Array.Empty<DirectionOpportunityInfo>();
+            
+            map.Enter(response.CanCollectScoreHere, response.CanExitMazeHere, directionOpportunities);
             Render.Map(map.RenderAscii());
         }
         catch (ApiException ex) when (errors.TryHandle("enter", ex))

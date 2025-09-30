@@ -18,6 +18,28 @@ public sealed class ConsoleUi(CommandRouter router)
         }
     }
 
+    public async Task RunCommandsAsync(string[] commands)
+    {
+        Render.Info("MazeRunner - Executing commands from command line");
+        
+        foreach (var command in commands)
+        {
+            var parts = Split(command);
+            if (parts.Length == 0) continue;
+            
+            Render.Info($"Executing: {command}");
+            var shouldContinue = await router.DispatchAsync(parts, CancellationToken.None);
+            
+            // If a command indicates we should stop (like quit), break the loop
+            if (!shouldContinue)
+            {
+                break;
+            }
+        }
+        
+        Render.Info("Command execution completed.");
+    }
+
     private static string[] Split(string input)
     {
         var r = new List<string>();
